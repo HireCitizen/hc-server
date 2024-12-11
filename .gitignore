@@ -1,3 +1,6 @@
+# DB reset schema
+schema
+
 # Output
 dist/*
 
