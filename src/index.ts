@@ -1,16 +1,18 @@
 import express, { Express, Request, Response } from "express";
 import dotenv from "dotenv";
+import cors from "cors";
 dotenv.config();
 
 const port = process.env.PORT;
 const app: Express = express();
+app.use(cors())
 
 // respond with "hello world" when a GET request is made to the homepage
 app.get('/', (req: Request, res: Response) => {
   res.send('hello world')
 });
 
-app.get('/user/:id', (req: Request, res: Response) => {
+app.get('/api/user/:id', (req: Request, res: Response) => {
   res.json({
     id: 1,
     handle: 'doc_mercy',
