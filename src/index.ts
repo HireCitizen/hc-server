@@ -2,11 +2,10 @@ import express, { Express, Request, Response } from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 
-import mysqlConnection from "./db/database";
+import home from "@/routes/home";
+import users from "@/routes/users";
+import jobs from "@/routes/jobs";
 
-import home from "./routes/home";
-import users from "./routes/users";
-import jobs from "./routes/jobs";
 dotenv.config();
 
 const port = process.env.PORT;
