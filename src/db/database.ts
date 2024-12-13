@@ -9,7 +9,7 @@ const connectionOptions: ConnectionOptions = {
   user: process.env.aws_db_username,
   database: process.env.db_name_dev,
   password: process.env.aws_db_password,
-  multipleStatements: true,
+  multipleStatements: true
 }
 
 export default connectionOptions;
