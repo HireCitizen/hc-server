@@ -2,9 +2,9 @@ import express, { Express, Request, Response } from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 
-import home from "@/routes/home";
-import users from "@/routes/users";
-import jobs from "@/routes/jobs";
+import home from "@/routes/homeController";
+import users from "@/routes/userController";
+import jobs from "@/routes/jobController";
 
 dotenv.config();
 

@@ -2,7 +2,7 @@ import mysql from 'mysql2/promise';
 
 import mysqlConnectionProps from "@/db/database";
 import { RowDataPacket } from "mysql2";
-import { Job, JobType } from '@/types/Job';
+import { CrewRole, Job, JobType, JobTypeCategory } from '@/types/Job';
 import { User, UserLanguage } from '@/types/User';
 
 export async function searchJobs({
@@ -68,4 +68,34 @@ export async function getJobById(jobId: number): Promise<Job> {
 
   await conn.end();
   return rows[0] as Job;
+}
+
+export async function getJobCategories(): Promise<JobTypeCategory[]> {
+  try {
+    const conn = await mysql.createConnection(mysqlConnectionProps);
+    const [rows] = await conn.query<RowDataPacket[]>(
+      `SELECT * FROM job_type`
+    );
+    await conn.end();
+    return rows as JobTypeCategory[];
+
+  } catch (error) {
+    console.error("Error getting job categories", error);
+    throw error;
+  }
+}
+
+export async function getCrewRoles(): Promise<CrewRole[]> {
+  try {
+    const conn = await mysql.createConnection(mysqlConnectionProps);
+    const [rows] = await conn.query<RowDataPacket[]>(
+      `SELECT * FROM crew_roles`
+    );
+    await conn.end();
+    return rows as CrewRole[];
+
+  } catch (error) {
+    console.error("Error getting crew roles", error);
+    throw error;
+  }
 }
