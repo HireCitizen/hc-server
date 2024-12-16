@@ -63,38 +63,68 @@ export async function searchJobs({
 
 export async function getJobById(jobId: number): Promise<Job> {
   const conn = await mysql.createConnection(mysqlConnectionProps);
-  const [jobRow] = await conn.query<RowDataPacket[]>(
-    `SELECT * FROM job WHERE id = ?`, [jobId]
+  const [rows] = await conn.query<RowDataPacket[]>(
+    `SELECT j.*,
+      cr.name AS crew_role_name, cr.description AS crew_role_description, cr.id AS crew_role_id,
+      jcr.crew_role_count,
+      jt.name AS job_type_name, jt.description AS job_type_description,
+      l.code AS language_code, l.name AS language_name,
+      u.moniker AS user_moniker
+      FROM job j
+      LEFT JOIN job_crew_role_join jcr ON j.id = jcr.job_id
+      LEFT JOIN crew_roles cr ON jcr.crew_role_id = cr.id
+      LEFT JOIN job_type jt ON j.job_type_id = jt.id
+      LEFT JOIN language l ON j.language_id = l.id
+      LEFT JOIN user u ON j.owner_id = u.id
+      WHERE j.id = ?`,
+    [jobId]
   );
 
-  if (jobRow.length === 1) {
-    const jobId = jobRow[0].id;
-
-    const [crewRoleJoinRows] = await conn.query<RowDataPacket[]>(
-      `SELECT * FROM job_crew_role_join WHERE job_id = ?`, [jobId]
-    );
-
-    const crewRoles = crewRoleJoinRows.map((row) => ({
+  console.log('rows', rows);
+  if (rows.length > 0) {
+    const jobData = rows[0];
+    const crewRoles = rows.map(row => ({
       id: row.crew_role_id,
+      name: row.crew_role_name,
+      description: row.crew_role_description,
       count: row.crew_role_count
-    }));
-
-    const crewRoleData = await Promise.all(crewRoles.map(async (crewRole) => {
-      const [crewRoleRow] = await conn.query<RowDataPacket[]>(
-        `SELECT * FROM crew_roles WHERE id = ?`, [crewRole.id]
-      );
-      return {
-        ...crewRoleRow[0],
-        count: crewRole.count
-      } as CrewRole;
-    }));
+    })) as CrewRole[];
 
     await conn.end();
-    return { ...jobRow[0], crewRoles: crewRoleData } as Job;
-  }
+    return {
+      id: jobData.id,
+      owner: {
+        id: jobData.owner_id,
+        moniker: jobData.user_moniker
+      },
+      title: jobData.title,
+      description: jobData.description,
+      jobType: {
+        id: jobData.job_type_id,
+        name: jobData.job_type_name,
+        description: jobData.job_type_description
+      },
+      status: jobData.status,
+      created_at: jobData.created_at,
+      updated_at: jobData.updated_at,
+      job_start: jobData.job_start,
+      estimated_time: jobData.estimated_time,
+      amount_paid: jobData.amount_paid,
+      pay_type: jobData.pay_type,
+      reputation_gate: jobData.reputation_gate,
+      language: {
+        id: jobData.language_id,
+        code: jobData.language_code,
+        name: jobData.language_name
+      },
+      job_privacy: jobData.job_privacy,
+      crewRoles
+    } as unknown as Job;
 
-  await conn.end();
-  return {} as Job;
+  } else {
+    await conn.end();
+    return {} as Job;
+  }
 }
 
 export async function getJobCategories(): Promise<JobTypeCategory[]> {
@@ -144,11 +174,7 @@ export async function createJob(job: FormData): Promise<Job> {
         [jobId, crewRole.id, crewRole.count]
     );
   }));
-
-  console.log('roleResp', roleResp);
-
-  console.log('final role rows', roleRows);
-  console.log('final job', row);
+  // return job
   await conn.end();
   return {} as Job;
 }
