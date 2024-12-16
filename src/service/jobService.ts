@@ -63,12 +63,38 @@ export async function searchJobs({
 
 export async function getJobById(jobId: number): Promise<Job> {
   const conn = await mysql.createConnection(mysqlConnectionProps);
-  const [rows] = await conn.query<RowDataPacket[]>(
+  const [jobRow] = await conn.query<RowDataPacket[]>(
     `SELECT * FROM job WHERE id = ?`, [jobId]
   );
 
+  if (jobRow.length === 1) {
+    const jobId = jobRow[0].id;
+
+    const [crewRoleJoinRows] = await conn.query<RowDataPacket[]>(
+      `SELECT * FROM job_crew_role_join WHERE job_id = ?`, [jobId]
+    );
+
+    const crewRoles = crewRoleJoinRows.map((row) => ({
+      id: row.crew_role_id,
+      count: row.crew_role_count
+    }));
+
+    const crewRoleData = await Promise.all(crewRoles.map(async (crewRole) => {
+      const [crewRoleRow] = await conn.query<RowDataPacket[]>(
+        `SELECT * FROM crew_roles WHERE id = ?`, [crewRole.id]
+      );
+      return {
+        ...crewRoleRow[0],
+        count: crewRole.count
+      } as CrewRole;
+    }));
+
+    await conn.end();
+    return { ...jobRow[0], crewRoles: crewRoleData } as Job;
+  }
+
   await conn.end();
-  return rows[0] as Job;
+  return {} as Job;
 }
 
 export async function getJobCategories(): Promise<JobTypeCategory[]> {

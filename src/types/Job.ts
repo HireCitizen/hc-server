@@ -27,6 +27,7 @@ export type Job = {
   language: UserLanguage;
   isBookmarked: boolean;
   isFlagged: boolean;
+  crewRoles: CrewRole[];
 }
 
 export type CrewRole = {
