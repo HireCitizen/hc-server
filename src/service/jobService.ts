@@ -14,9 +14,9 @@ export async function searchJobs({
   filter?: string[];
 }): Promise<Job[]> {
 
-  try {
-    const conn = await mysql.createConnection(mysqlConnectionProps);
+  const conn = await mysql.createConnection(mysqlConnectionProps);
 
+  try {
     if (searchTerm && searchTerm.length > 0) {
       const [rows] = await conn.query<RowDataPacket[]>(
         `SELECT j.*,
@@ -48,7 +48,6 @@ export async function searchJobs({
         } as UserLanguage
       }));
 
-      await conn.end();
       return jobs as Job[];
 
     } else {
@@ -58,13 +57,18 @@ export async function searchJobs({
   } catch (error) {
     console.error("Error searching jobs", error);
     throw error;
+
+  } finally {
+    await conn.end();
   }
 }
 
 export async function getJobById(jobId: number): Promise<Job> {
   const conn = await mysql.createConnection(mysqlConnectionProps);
-  const [rows] = await conn.query<RowDataPacket[]>(
-    `SELECT j.*,
+
+  try {
+    const [rows] = await conn.query<RowDataPacket[]>(
+      `SELECT j.*,
       cr.name AS crew_role_name, cr.description AS crew_role_description, cr.id AS crew_role_id,
       jcr.crew_role_count,
       jt.name AS job_type_name, jt.description AS job_type_description,
@@ -77,68 +81,76 @@ export async function getJobById(jobId: number): Promise<Job> {
       LEFT JOIN language l ON j.language_id = l.id
       LEFT JOIN user u ON j.owner_id = u.id
       WHERE j.id = ?`,
-    [jobId]
-  );
+      [jobId]
+    );
 
-  console.log('rows', rows);
-  if (rows.length > 0) {
-    const jobData = rows[0];
-    const crewRoles = rows.map(row => ({
-      id: row.crew_role_id,
-      name: row.crew_role_name,
-      description: row.crew_role_description,
-      count: row.crew_role_count
-    })) as CrewRole[];
+    if (rows.length > 0) {
+      const jobData = rows[0];
+      const crewRoles = rows.map(row => ({
+        id: row.crew_role_id,
+        name: row.crew_role_name,
+        description: row.crew_role_description,
+        count: row.crew_role_count
+      })) as CrewRole[];
 
+      return {
+        id: jobData.id,
+        owner: {
+          id: jobData.owner_id,
+          moniker: jobData.user_moniker
+        },
+        title: jobData.title,
+        description: jobData.description,
+        jobType: {
+          id: jobData.job_type_id,
+          name: jobData.job_type_name,
+          description: jobData.job_type_description
+        },
+        status: jobData.status,
+        created_at: jobData.created_at,
+        updated_at: jobData.updated_at,
+        job_start: jobData.job_start,
+        estimated_time: jobData.estimated_time,
+        amount_paid: jobData.amount_paid,
+        pay_type: jobData.pay_type,
+        reputation_gate: jobData.reputation_gate,
+        language: {
+          id: jobData.language_id,
+          code: jobData.language_code,
+          name: jobData.language_name
+        },
+        job_privacy: jobData.job_privacy,
+        crewRoles
+      } as unknown as Job;
+
+    } else {
+      return {} as Job;
+    }
+
+  } catch (error) {
+    console.error("Error getting job by id", error);
+    throw error;
+
+  } finally {
     await conn.end();
-    return {
-      id: jobData.id,
-      owner: {
-        id: jobData.owner_id,
-        moniker: jobData.user_moniker
-      },
-      title: jobData.title,
-      description: jobData.description,
-      jobType: {
-        id: jobData.job_type_id,
-        name: jobData.job_type_name,
-        description: jobData.job_type_description
-      },
-      status: jobData.status,
-      created_at: jobData.created_at,
-      updated_at: jobData.updated_at,
-      job_start: jobData.job_start,
-      estimated_time: jobData.estimated_time,
-      amount_paid: jobData.amount_paid,
-      pay_type: jobData.pay_type,
-      reputation_gate: jobData.reputation_gate,
-      language: {
-        id: jobData.language_id,
-        code: jobData.language_code,
-        name: jobData.language_name
-      },
-      job_privacy: jobData.job_privacy,
-      crewRoles
-    } as unknown as Job;
-
-  } else {
-    await conn.end();
-    return {} as Job;
   }
 }
 
 export async function getJobCategories(): Promise<JobTypeCategory[]> {
+  const conn = await mysql.createConnection(mysqlConnectionProps);
+
   try {
-    const conn = await mysql.createConnection(mysqlConnectionProps);
     const [rows] = await conn.query<RowDataPacket[]>(
       `SELECT * FROM job_type`
     );
-    await conn.end();
+
     return rows as JobTypeCategory[];
 
   } catch (error) {
     console.error("Error getting job categories", error);
     throw error;
+  } finally {
+    await conn.end();
   }
 }
 
