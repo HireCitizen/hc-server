@@ -160,21 +160,57 @@ export async function getCrewRoles(): Promise<CrewRole[]> {
 export async function createJob(job: FormData): Promise<Job> {
   const conn = await mysql.createConnection(mysqlConnectionProps);
 
-  const [row] = await conn.query<ResultSetHeader>(
-    `INSERT INTO job (owner_id, title, description, job_type_id, language_id, status, job_start, estimated_time, amount_paid, pay_type, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [1, job.title, job.description, job.jobType, 1, 'PENDING', new Date(job.jobStart), job.estimatedTime, job.amountPaid, job.payType, new Date(), new Date()]
-  );
+  try {
+    await conn.beginTransaction();
 
-  const jobId = row.insertId;
-  const roleRows: ResultSetHeader[] = [];
-
-  const roleResp = await Promise.all(job.crewRoles.map((crewRole) => {
-    return conn.query<ResultSetHeader>(
-        `INSERT INTO job_crew_role_join (job_id, crew_role_id, crew_role_count) VALUES (?, ?, ?)`,
-        [jobId, crewRole.id, crewRole.count]
+    // Insert the job
+    const [row] = await conn.query<ResultSetHeader>(
+      `INSERT INTO job (owner_id, title, description, job_type_id, language_id, status, job_start, estimated_time, amount_paid, pay_type, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [1, job.title, job.description, job.jobType, 1, 'PENDING', new Date(job.jobStart), job.estimatedTime, job.amountPaid, job.payType, new Date(), new Date()]
     );
-  }));
-  // return job
-  await conn.end();
-  return {} as Job;
+
+    const jobId = row.insertId;
+
+    // Insert all crew roles
+    await Promise.all(job.crewRoles.map((crewRole) => {
+      return conn.query<ResultSetHeader>(
+        `INSERT INTO job_crew_role_join (job_id, crew_role_id, crew_role_count)
+         VALUES (?, ?, ?)`,
+        [jobId, crewRole.id, crewRole.count]
+      );
+    }));
+
+    await conn.commit();
+    return await getJobById(jobId); // Return the newly created job
+
+  } catch (error) {
+    await conn.rollback();
+    console.error("Error creating job", error);
+    throw error;
+  } finally {
+    await conn.end();
+  }
 }
+
+// export async function createJob(job: FormData): Promise<Job> {
+//   const conn = await mysql.createConnection(mysqlConnectionProps);
+
+//   const [row] = await conn.query<ResultSetHeader>(
+//     `INSERT INTO job (owner_id, title, description, job_type_id, language_id, status, job_start, estimated_time, amount_paid, pay_type, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+//     [1, job.title, job.description, job.jobType, 1, 'PENDING', new Date(job.jobStart), job.estimatedTime, job.amountPaid, job.payType, new Date(), new Date()]
+//   );
+
+//   const jobId = row.insertId;
+//   const roleRows: ResultSetHeader[] = [];
+
+//   const roleResp = await Promise.all(job.crewRoles.map((crewRole) => {
+//     return conn.query<ResultSetHeader>(
+//         `INSERT INTO job_crew_role_join (job_id, crew_role_id, crew_role_count) VALUES (?, ?, ?)`,
+//         [jobId, crewRole.id, crewRole.count]
+//     );
+//   }));
+//   // return job
+//   await conn.end();
+//   return {} as Job;
+// }
