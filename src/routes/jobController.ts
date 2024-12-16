@@ -1,7 +1,8 @@
 import express, { Request, Response } from "express";
 const router = express.Router();
 
-import { getCrewRoles, getJobById, getJobCategories, searchJobs } from "@/service/jobService";
+import { createJob, getCrewRoles, getJobById, getJobCategories, searchJobs } from "@/service/jobService";
+import { Job } from "@/types/Job";
 
 router.get('/', async (req: Request, res: Response) => {
   const jobs = await searchJobs({
@@ -41,6 +42,11 @@ router.get('/crew-roles', async (req: Request, res: Response) => {
   } catch (error) {
     res.status(500).json({ error: 'Internal server error: ' + error });
   }
+});
+
+router.post('/create', async (req: Request, res: Response) => {
+  const job: Job = await createJob(req.body);
+  res.json(job);
 });
 
 export default router;

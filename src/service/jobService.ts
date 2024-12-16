@@ -1,9 +1,10 @@
 import mysql from 'mysql2/promise';
 
 import mysqlConnectionProps from "@/db/database";
-import { RowDataPacket } from "mysql2";
+import { RowDataPacket, ResultSetHeader } from "mysql2";
 import { CrewRole, Job, JobType, JobTypeCategory } from '@/types/Job';
 import { User, UserLanguage } from '@/types/User';
+import { FormData } from '@/types/Forms';
 
 export async function searchJobs({
   searchTerm,
@@ -20,11 +21,11 @@ export async function searchJobs({
       const [rows] = await conn.query<RowDataPacket[]>(
         `SELECT j.*,
          u.id AS user_id, u.moniker,
-         jt.id as job_type_id, jt.name AS job_type_name, jt.description AS job_type_description,
+         jt.id as jobtype_id, jt.name AS job_type_name, jt.description AS job_type_description,
          l.code AS language_code, l.name AS language_name
          FROM job j
          LEFT JOIN user u ON j.owner_id = u.id
-         LEFT JOIN job_type jt ON j.job_type = jt.id
+         LEFT JOIN job_type jt ON j.job_type_id = jt.id
          LEFT JOIN language l ON j.language_id = l.id
          WHERE j.title LIKE ?`,
         [`%${searchTerm}%`]
@@ -37,7 +38,7 @@ export async function searchJobs({
           moniker: row.moniker
         } as User,
         jobType: {
-          id: row.job_type_id,
+          id: row.jobtype_id,
           name: row.job_type_name,
           description: row.job_type_description
         } as JobType,
@@ -98,4 +99,30 @@ export async function getCrewRoles(): Promise<CrewRole[]> {
     console.error("Error getting crew roles", error);
     throw error;
   }
+}
+
+export async function createJob(job: FormData): Promise<Job> {
+  const conn = await mysql.createConnection(mysqlConnectionProps);
+
+  const [row] = await conn.query<ResultSetHeader>(
+    `INSERT INTO job (owner_id, title, description, job_type_id, language_id, status, job_start, estimated_time, amount_paid, pay_type, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [1, job.title, job.description, job.jobType, 1, 'PENDING', new Date(job.jobStart), job.estimatedTime, job.amountPaid, job.payType, new Date(), new Date()]
+  );
+
+  const jobId = row.insertId;
+  const roleRows: ResultSetHeader[] = [];
+
+  const roleResp = await Promise.all(job.crewRoles.map((crewRole) => {
+    return conn.query<ResultSetHeader>(
+        `INSERT INTO job_crew_role_join (job_id, crew_role_id, crew_role_count) VALUES (?, ?, ?)`,
+        [jobId, crewRole.id, crewRole.count]
+    );
+  }));
+
+  console.log('roleResp', roleResp);
+
+  console.log('final role rows', roleRows);
+  console.log('final job', row);
+  await conn.end();
+  return {} as Job;
 }
